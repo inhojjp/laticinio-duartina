@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Laticínios Duartina</string>
+    <string name="title_activity_main">Laticínios Duartina</string>
+    <string name="package_name">br.com.duartina.laticinio</string>
+    <string name="custom_url_scheme">br.com.duartina.laticinio</string>
+</resources>

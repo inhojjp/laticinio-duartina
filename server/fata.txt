@@ -1,0 +1,4 @@
+vamos instalar as dependências do banco e criar todo o sistema de fornecedores funcionando com dados reais!
+
+inicia o server
+npm run dev

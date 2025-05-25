@@ -1,0 +1,147 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Header } from "@/components/header";
+import { BottomNav } from "@/components/bottom-nav";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatCurrency } from "@/lib/utils";
+import { BarChart3, TrendingUp, Calendar, Download } from "lucide-react";
+
+interface ReportsProps {
+  onLogout: () => void;
+}
+
+export default function Reports({ onLogout }: ReportsProps) {
+  const [dateRange, setDateRange] = useState({
+    start: new Date(new Date().setDate(new Date().getDate() - 30)),
+    end: new Date()
+  });
+
+  const { data: paymentStats = [] } = useQuery({
+    queryKey: ["/api/sales/stats/payment-methods"],
+  });
+
+  const { data: topProducts = [] } = useQuery({
+    queryKey: ["/api/sales/stats/top-products"],
+  });
+
+  const { data: dailySummary = { total: "0", count: 0 } } = useQuery({
+    queryKey: ["/api/sales/summary/daily"],
+  });
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header onLogout={onLogout} />
+      
+      <main className="p-4 pb-20">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold company-primary">Relatórios</h1>
+          <Button variant="outline">
+            <Download className="mr-2 h-4 w-4" />
+            Exportar
+          </Button>
+        </div>
+
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+            <TabsTrigger value="payments">Pagamentos</TabsTrigger>
+            <TabsTrigger value="products">Produtos</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Hoje</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold company-primary">
+                    {formatCurrency(dailySummary.total)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {dailySummary.count} vendas
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Média por Venda</CardTitle>
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {dailySummary.count > 0 
+                      ? formatCurrency(parseFloat(dailySummary.total) / dailySummary.count)
+                      : formatCurrency(0)
+                    }
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Ticket médio
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Período</CardTitle>
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-lg font-bold">30 dias</div>
+                  <p className="text-xs text-muted-foreground">
+                    Último mês
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="payments" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Métodos de Pagamento</CardTitle>
+                <CardDescription>Distribuição das vendas por forma de pagamento</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {paymentStats.length === 0 ? (
+                  <p className="text-center text-gray-500 py-8">
+                    Nenhum dado de pagamento encontrado
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {paymentStats.map((stat: any, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <p className="font-medium">{stat.method}</p>
+                          <p className="text-sm text-gray-600">{stat.count} vendas</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold company-primary">{formatCurrency(stat.total)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="products" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Produtos Mais Vendidos</CardTitle>
+                <CardDescription>Top 10 produtos por quantidade vendida</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {topProducts.length === 0 ? (
+                  <p className="text-center text-gray-500 py-8">
+                    Nenhum dado de produto encontrado
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {topProducts.map((product: any, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-

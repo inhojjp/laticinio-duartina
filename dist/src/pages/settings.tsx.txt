@@ -1,0 +1,72 @@
+import { Header } from "@/components/header";
+import { BottomNav } from "@/components/bottom-nav";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Settings as SettingsIcon, User, Bell, Shield, Database, Smartphone } from "lucide-react";
+
+interface SettingsProps {
+  onLogout: () => void;
+}
+
+export default function Settings({ onLogout }: SettingsProps) {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header onLogout={onLogout} />
+      
+      <main className="p-4 pb-20">
+        <div className="flex items-center mb-6">
+          <SettingsIcon className="mr-3 h-8 w-8 company-primary" />
+          <h1 className="text-2xl font-bold company-primary">Configurações</h1>
+        </div>
+
+        <div className="space-y-6">
+          {/* Profile Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <User className="mr-2 h-5 w-5" />
+                Perfil do Usuário
+              </CardTitle>
+              <CardDescription>Informações da conta atual</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Usuário</p>
+                  <p className="text-sm text-gray-600">admin</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Empresa</p>
+                  <p className="text-sm text-gray-600">Laticínios Duartina</p>
+                </div>
+              </div>
+              <Button variant="outline" className="w-full">
+                Alterar Senha
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Notifications Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Bell className="mr-2 h-5 w-5" />
+                Notificações
+              </CardTitle>
+              <CardDescription>Configure suas preferências de notificação</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="sales-notifications">Notificações de Vendas</Label>
+                <Switch id="sales-notifications" defaultChecked />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="appointment-notifications">Lembrete de Agendamentos</Label>
+                <Switch id="appointment-notifications" defaultChecked />
+              </div>
+              <div className="

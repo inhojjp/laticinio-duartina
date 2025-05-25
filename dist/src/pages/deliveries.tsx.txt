@@ -1,0 +1,165 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Header } from "@/components/header";
+import { BottomNav } from "@/components/bottom-nav";
+import { DeliveryModal } from "@/components/delivery-modal";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { formatDate, formatTime } from "@/lib/utils";
+import { Plus, Truck, MapPin, Phone } from "lucide-react";
+import type { Delivery } from "@shared/schema";
+
+interface DeliveriesProps {
+  onLogout: () => void;
+}
+
+export default function Deliveries({ onLogout }: DeliveriesProps) {
+  const [showModal, setShowModal] = useState(false);
+
+  const { data: deliveries = [], isLoading } = useQuery<Delivery[]>({
+    queryKey: ["/api/deliveries"],
+  });
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pendente":
+        return "bg-yellow-500";
+      case "em_transito":
+        return "bg-blue-500";
+      case "entregue":
+        return "bg-green-500";
+      case "cancelado":
+        return "bg-red-500";
+      default:
+        return "bg-gray-500";
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "pendente":
+        return "Pendente";
+      case "em_transito":
+        return "Em Trânsito";
+      case "entregue":
+        return "Entregue";
+      case "cancelado":
+        return "Cancelado";
+      default:
+        return status;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header onLogout={onLogout} />
+      
+      <main className="p-4 pb-20">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold company-primary">Entregas</h1>
+          <Button 
+            onClick={() => setShowModal(true)}
+            className="bg-company-primary hover:bg-blue-800"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nova Entrega
+          </Button>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-40 bg-gray-200 rounded-md animate-pulse" />
+            ))}
+          </div>
+        ) : deliveries.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Truck className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <p className="text-gray-500">Nenhuma entrega encontrada</p>
+              <Button 
+                onClick={() => setShowModal(true)}
+                className="mt-4 bg-company-primary hover:bg-blue-800"
+              >
+                Agendar Primeira Entrega
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {deliveries.map((delivery) => (
+              <Card key={delivery.id} className="hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg">{delivery.customerName}</CardTitle>
+                      <CardDescription className="flex items-center">
+                        <Phone className="mr-1 h-3 w-3" />
+                        {delivery.customerPhone}
+                      </CardDescription>
+                    </div>
+                    <Badge className={`text-white ${getStatusColor(delivery.status)}`}>
+                      {getStatusText(delivery.status)}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-start text-sm text-gray-600">
+                      <MapPin className="mr-2 h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <span>{delivery.address}</span>
+                    </div>
+                    
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Truck className="mr-2 h-4 w-4" />
+                      {formatDate(new Date(delivery.deliveryDate))} às {formatTime(new Date(delivery.deliveryDate))}
+                    </div>
+                    
+                    {delivery.notes && (
+                      <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded">
+                        <strong>Observações:</strong> {delivery.notes}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2 mt-4">
+                    <Button variant="outline" size="sm">
+                      Editar
+                    </Button>
+                    {delivery.latitude && delivery.longitude && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => window.open(`https://maps.google.com?q=${delivery.latitude},${delivery.longitude}`, '_blank')}
+                      >
+                        Ver no Mapa
+                      </Button>
+                    )}
+                    {delivery.status === "pendente" && (
+                      <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                        Iniciar Entrega
+                      </Button>
+                    )}
+                    {delivery.status === "em_transito" && (
+                      <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                        Marcar como Entregue
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </main>
+
+      <BottomNav activeTab="deliveries" onTabChange={() => {}} />
+      
+      <DeliveryModal 
+        open={showModal} 
+        onClose={() => setShowModal(false)} 
+      />
+    </div>
+  );
+}

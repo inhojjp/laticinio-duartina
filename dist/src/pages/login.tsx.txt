@@ -1,0 +1,120 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { AlertCircle } from "lucide-react";
+
+interface LoginProps {
+  onLogin: (userData: { id: string; username: string }) => void;
+  connectionError?: string | null;
+}
+
+export default function Login({ onLogin, connectionError }: LoginProps) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const response = await apiRequest("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast({
+          title: "Login realizado com sucesso!",
+          description: "Bem-vindo ao sistema Laticínios Duartina",
+        });
+        onLogin(result.user);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Erro no login",
+          description: result.message || "Credenciais incorretas",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro no login",
+        description: "Verifique sua conexão e tente novamente.",
+      });
+    }
+
+    setIsLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-red-50 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 w-16 h-16 bg-company-primary rounded-full flex items-center justify-center">
+            <span className="text-white font-bold text-xl">LD</span>
+          </div>
+          <CardTitle className="text-2xl company-primary">Laticínios Duartina</CardTitle>
+          <CardDescription>
+            Entre com suas credenciais para acessar o sistema
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {connectionError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{connectionError}</AlertDescription>
+            </Alert>
+          )}
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Usuário</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="Digite seu usuário"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Digite sua senha"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <Button 
+              type="submit" 
+              className="w-full bg-company-primary hover:bg-blue-800" 
+              disabled={isLoading}
+            >
+              {isLoading ? "Entrando..." : "Entrar"}
+            </Button>
+          </form>
+          
+          <div className="mt-4 text-center text-sm text-gray-600">
+            <p>Usuário: <strong>admin</strong></p>
+            <p>Senha: <strong>favarini123</strong></p>
+            <p className="mt-2 text-xs">✅ Permite até 5 usuários simultâneos</p>
+            <p className="text-xs">🔄 Sincronização automática a cada 5 segundos</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

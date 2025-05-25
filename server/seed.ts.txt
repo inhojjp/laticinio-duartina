@@ -1,0 +1,35 @@
+import { db } from './db';
+import { fornecedores } from '../shared/schema';
+
+async function seed() {
+  try {
+    console.log('Adicionando fornecedores iniciais...');
+    
+    await db.insert(fornecedores).values([
+      {
+        nome: 'Fazenda São João',
+        telefone: '(14) 99999-1234',
+        endereco: 'Estrada Rural, Km 5, Duartina-SP',
+        preco_litro: '2.50'
+      },
+      {
+        nome: 'Sítio Esperança',
+        telefone: '(14) 98888-5678',
+        endereco: 'Estrada do Paraíso, Km 3, Duartina-SP',
+        preco_litro: '2.45'
+      },
+      {
+        nome: 'Fazenda Boa Vista',
+        telefone: '(14) 97777-9012',
+        endereco: 'Rodovia SP-294, Km 380, Duartina-SP',
+        preco_litro: '2.55'
+      }
+    ]);
+    
+    console.log('✅ Fornecedores adicionados com sucesso!');
+  } catch (error) {
+    console.error('❌ Erro ao adicionar fornecedores:', error);
+  }
+}
+
+seed();

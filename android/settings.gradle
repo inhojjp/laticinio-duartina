@@ -1,0 +1,6 @@
+include ':app'
+// Comentar as linhas problemáticas temporariamente
+// include ':capacitor-cordova-android-plugins'
+// project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
+// Já está comentado
+// apply from: 'capacitor.settings.gradle'

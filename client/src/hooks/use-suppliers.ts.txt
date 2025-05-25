@@ -1,0 +1,81 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import type { Supplier, InsertSupplier, MilkDelivery, InsertMilkDelivery } from "@shared/schema";
+
+export function useSuppliers() {
+  return useQuery<Supplier[]>({
+    queryKey: ["/api/suppliers"],
+  });
+}
+
+export function useCreateSupplier() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (supplier: InsertSupplier) => {
+      const response = await apiRequest("/api/suppliers", {
+        method: "POST",
+        body: JSON.stringify(supplier),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+    },
+  });
+}
+
+export function useMilkDeliveries() {
+  return useQuery<MilkDelivery[]>({
+    queryKey: ["/api/milk-deliveries"],
+  });
+}
+
+export function useCreateMilkDelivery() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (milkDelivery: InsertMilkDelivery) => {
+      const response = await apiRequest("/api/milk-deliveries", {
+        method: "POST",
+        body: JSON.stringify(milkDelivery),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/milk-deliveries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers/balances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers/total-owed"] });
+    },
+  });
+}
+
+export function useMarkMilkDeliveryAsPaid() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest(`/api/milk-deliveries/${id}/pay`, {
+        method: "PATCH",
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/milk-deliveries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers/balances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers/total-owed"] });
+    },
+  });
+}
+
+export function useSupplierBalances() {
+  return useQuery({
+    queryKey: ["/api/suppliers/balances"],
+  });
+}
+
+export function useTotalOwedToSuppliers() {
+  return useQuery({
+    queryKey: ["/api/suppliers/total-owed"],
+  });
+}

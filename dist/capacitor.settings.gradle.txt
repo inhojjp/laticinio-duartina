@@ -1,0 +1,2 @@
+// Este arquivo é usado pelo Capacitor para configurações adicionais
+// Deixe vazio para configuração mínima

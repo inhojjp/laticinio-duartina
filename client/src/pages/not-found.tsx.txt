@@ -1,0 +1,27 @@
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Home, ArrowLeft } from "lucide-react";
+
+export default function NotFound() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardContent className="p-8 text-center">
+          <div className="mx-auto mb-6 w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center">
+            <span className="text-4xl text-gray-400">404</span>
+          </div>
+          
+          <h1 className="text-2xl font-bold company-primary mb-2">
+            Página Não Encontrada
+          </h1>
+          
+          <p className="text-gray-600 mb-6">
+            A página que você está procurando não existe ou foi movida.
+          </p>
+          
+          <div className="space-y-3">
+            <Link href="/">
+              <Button className="w-full bg-company-primary hover:bg-blue-800">
+                <Home className="mr-2 h-4 w-4" />
+                Voltar ao

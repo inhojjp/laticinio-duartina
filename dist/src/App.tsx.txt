@@ -1,0 +1,134 @@
+import { Router, Route, Switch } from "wouter";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
+import { Toaster } from "@/components/ui/toaster";
+import { useWebSocket } from "@/hooks/use-websocket";
+
+import Login from "@/pages/login";
+import Dashboard from "@/pages/dashboard";
+import Products from "@/pages/products";
+import Reports from "@/pages/reports";
+import Settings from "@/pages/settings";
+import Appointments from "@/pages/appointments";
+import Deliveries from "@/pages/deliveries";
+import Suppliers from "@/pages/suppliers";
+import NotFound from "@/pages/not-found";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: false, // Disable since we use WebSocket sync
+    },
+  },
+});
+
+function App() {
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem("currentUser");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
+  const { isConnected, connectedUsers, connectionError, disconnect } = useWebSocket(
+    user?.id || null, 
+    user?.username || "admin"
+  );
+
+  const handleLogin = (userData: { id: string; username: string }) => {
+    setUser(userData);
+    localStorage.setItem("currentUser", JSON.stringify(userData));
+  };
+
+  const handleLogout = () => {
+    disconnect();
+    setUser(null);
+    localStorage.removeItem("currentUser");
+  };
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        {!user ? (
+          <Login onLogin={handleLogin} connectionError={connectionError} />
+        ) : (
+          <Switch>
+            <Route 
+              path="/" 
+              component={() => 
+                <Dashboard 
+                  onLogout={handleLogout} 
+                  isOnline={isConnected}
+                  connectedUsers={connectedUsers}
+                />
+              } 
+            />
+            <Route 
+              path="/products" 
+              component={() => 
+                <Products 
+                  onLogout={handleLogout} 
+                  isOnline={isConnected}
+                  connectedUsers={connectedUsers}
+                />
+              } 
+            />
+            <Route 
+              path="/suppliers" 
+              component={() => 
+                <Suppliers 
+                  onLogout={handleLogout} 
+                  isOnline={isConnected}
+                  connectedUsers={connectedUsers}
+                />
+              } 
+            />
+            <Route 
+              path="/appointments" 
+              component={() => 
+                <Appointments 
+                  onLogout={handleLogout} 
+                  isOnline={isConnected}
+                  connectedUsers={connectedUsers}
+                />
+              } 
+            />
+            <Route 
+              path="/deliveries" 
+              component={() => 
+                <Deliveries 
+                  onLogout={handleLogout} 
+                  isOnline={isConnected}
+                  connectedUsers={connectedUsers}
+                />
+              } 
+            />
+            <Route 
+              path="/reports" 
+              component={() => 
+                <Reports 
+                  onLogout={handleLogout} 
+                  isOnline={isConnected}
+                  connectedUsers={connectedUsers}
+                />
+              } 
+            />
+            <Route 
+              path="/settings" 
+              component={() => 
+                <Settings 
+                  onLogout={handleLogout} 
+                  isOnline={isConnected}
+                  connectedUsers={connectedUsers}
+                />
+              } 
+            />
+            <Route component={NotFound} />
+          </Switch>
+        )}
+      </Router>
+      <Toaster />
+    </QueryClientProvider>
+  );
+}
+
+export default App;

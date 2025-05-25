@@ -1,0 +1,92 @@
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { LogOut, Wifi, WifiOff, Users } from "lucide-react";
+
+interface ConnectedUser {
+  id: string;
+  username: string;
+  connectedAt: string;
+  lastActivity: string;
+}
+
+interface HeaderProps {
+  onLogout?: () => void;
+  isOnline?: boolean;
+  connectedUsers?: ConnectedUser[];
+}
+
+export function Header({ onLogout, isOnline = true, connectedUsers = [] }: HeaderProps) {
+  return (
+    <header className="bg-company-primary text-white p-4 shadow-lg">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
+            <span className="text-company-primary font-bold text-lg">LD</span>
+          </div>
+          <div>
+            <h1 className="text-xl font-bold">Laticínios Duartina</h1>
+            <p className="text-blue-100 text-sm">Sistema de Gestão</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-3">
+          {/* Connected Users */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-white hover:bg-blue-700">
+                <Users className="h-4 w-4 mr-1" />
+                <Badge variant="secondary" className="ml-1">
+                  {connectedUsers.length}
+                </Badge>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64">
+              <div className="space-y-2">
+                <h4 className="font-medium">Usuários Conectados ({connectedUsers.length}/5)</h4>
+                {connectedUsers.length === 0 ? (
+                  <p className="text-sm text-gray-500">Nenhum usuário conectado</p>
+                ) : (
+                  <div className="space-y-1">
+                    {connectedUsers.map((user) => (
+                      <div key={user.id} className="flex items-center justify-between text-sm">
+                        <span>{user.username}</span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(user.connectedAt).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Connection Status */}
+          <div className="flex items-center space-x-1">
+            {isOnline ? (
+              <Wifi className="h-4 w-4 text-green-300" />
+            ) : (
+              <WifiOff className="h-4 w-4 text-red-300" />
+            )}
+            <span className="text-xs hidden sm:inline">
+              {isOnline ? "Online" : "Offline"}
+            </span>
+          </div>
+          
+          {onLogout && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onLogout}
+              className="text-white hover:bg-blue-700"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="ml-2 hidden sm:inline">Sair</span>
+            </Button>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}

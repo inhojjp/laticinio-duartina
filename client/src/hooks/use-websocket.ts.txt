@@ -1,0 +1,175 @@
+import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+
+interface ConnectedUser {
+  id: string;
+  username: string;
+  connectedAt: string;
+  lastActivity: string;
+}
+
+interface WebSocketMessage {
+  type: string;
+  data?: any;
+  message?: string;
+}
+
+export function useWebSocket(userId: string | null, username: string) {
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([]);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const queryClient = useQueryClient();
+  const heartbeatRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+
+  const connect = () => {
+    if (!userId) return;
+
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    
+    try {
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setIsConnected(true);
+        setConnectionError(null);
+        
+        // Authenticate
+        ws.send(JSON.stringify({
+          type: 'auth',
+          userId,
+          username
+        }));
+
+        // Start heartbeat
+        heartbeatRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'heartbeat' }));
+          }
+        }, 30000);
+
+        // Request initial sync
+        ws.send(JSON.stringify({ type: 'sync_request' }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message: WebSocketMessage = JSON.parse(event.data);
+          
+          switch (message.type) {
+            case 'auth_success':
+              console.log('WebSocket authenticated successfully');
+              break;
+              
+            case 'auth_error':
+              setConnectionError(message.message || 'Erro de autenticação');
+              break;
+              
+            case 'users_update':
+              setConnectedUsers(message.data || []);
+              break;
+              
+            case 'sale_created':
+            case 'product_created':
+            case 'appointment_created':
+            case 'delivery_created':
+              // Invalidate relevant queries to refresh data
+              queryClient.invalidateQueries({ queryKey: ['/api/sales'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/deliveries'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/sales/summary/daily'] });
+              break;
+              
+            case 'sync_data':
+              // Update all queries with fresh data
+              if (message.data) {
+                queryClient.setQueryData(['/api/sales'], message.data.sales);
+                queryClient.setQueryData(['/api/products'], message.data.products);
+                queryClient.setQueryData(['/api/appointments'], message.data.appointments);
+                queryClient.setQueryData(['/api/deliveries'], message.data.deliveries);
+                queryClient.setQueryData(['/api/sales/summary/daily'], message.data.dailySummary);
+              }
+              break;
+              
+            case 'heartbeat_ack':
+              // Connection is alive
+              break;
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      ws.onclose = () => {
+        setIsConnected(false);
+        if (heartbeatRef.current) {
+          clearInterval(heartbeatRef.current);
+        }
+        
+        // Attempt to reconnect after 3 seconds
+        if (!connectionError) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connect();
+          }, 3000);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setIsConnected(false);
+      };
+
+    } catch (error) {
+      console.error('Failed to create WebSocket connection:', error);
+      setConnectionError('Falha ao conectar com o servidor');
+    }
+  };
+
+  const disconnect = () => {
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+    }
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+    setIsConnected(false);
+    setConnectedUsers([]);
+  };
+
+  useEffect(() => {
+    if (userId) {
+      connect();
+    }
+
+    return () => {
+      disconnect();
+    };
+  }, [userId]);
+
+  // Auto-sync every 5 seconds
+  useEffect(() => {
+    if (!isConnected || !wsRef.current) return;
+
+    const syncInterval = setInterval(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'sync_request' }));
+      }
+    }, 5000);
+
+    return () => clearInterval(syncInterval);
+  }, [isConnected]);
+
+  return {
+    isConnected,
+    connectedUsers,
+    connectionError,
+    disconnect
+  };
+}

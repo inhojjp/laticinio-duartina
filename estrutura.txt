@@ -1,0 +1,37 @@
+laticinio-duartina/
+├── 📱 **FRONTEND (React)**
+│   ├── client/
+│   │   ├── src/
+│   │   │   ├── components/           # Componentes React
+│   │   │   │   ├── ui/              # Componentes de interface
+│   │   │   │   ├── header.tsx       # Cabeçalho com seu logo
+│   │   │   │   ├── bottom-nav.tsx   # Menu inferior
+│   │   │   │   └── sale-modal.tsx   # Modal de vendas
+│   │   │   ├── pages/               # Páginas principais
+│   │   │   │   ├── dashboard.tsx    # Tela inicial
+│   │   │   │   ├── products.tsx     # Catálogo de produtos
+│   │   │   │   ├── reports.tsx      # Relatórios de vendas
+│   │   │   │   └── settings.tsx     # Configurações
+│   │   │   ├── hooks/               # Hooks personalizados
+│   │   │   │   ├── use-products.ts  # Gestão de produtos
+│   │   │   │   ├── use-sales.ts     # Gestão de vendas
+│   │   │   │   └── use-toast.ts     # Notificações
+│   │   │   ├── lib/                 # Utilitários
+│   │   │   │   ├── queryClient.ts   # Cliente HTTP
+│   │   │   │   └── utils.ts         # Funções auxiliares
+│   │   │   ├── App.tsx              # App principal
+│   │   │   ├── main.tsx             # Entrada do React
+│   │   │   └── index.css            # Estilos com suas cores
+│   │   └── index.html               # HTML base
+│
+├── 🖥️ **BACKEND (Express + PostgreSQL)**
+│   ├── server/
+│   │   ├── index.ts                 # Servidor principal
+│   │   ├── routes.ts                # Rotas da API
+│   │   ├── storage.ts               # Camada de dados
+│   │   ├── db.ts                    # Conexão PostgreSQL
+│   │   └── vite.ts                  # Configuração dev
+│
+├── 🗄️ **BANCO DE DADOS**
+│   └── shared/
+│       └── schema.ts                #

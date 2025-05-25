@@ -1,0 +1,143 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Header } from "@/components/header";
+import { BottomNav } from "@/components/bottom-nav";
+import { SaleModal } from "@/components/sale-modal";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import { ShoppingCart, TrendingUp, Calendar, Package } from "lucide-react";
+import type { SaleWithItems } from "@shared/schema";
+
+interface DashboardProps {
+  onLogout: () => void;
+}
+
+export default function Dashboard({ onLogout }: DashboardProps) {
+  const [showSaleModal, setShowSaleModal] = useState(false);
+
+  const { data: sales = [], isLoading: salesLoading } = useQuery<SaleWithItems[]>({
+    queryKey: ["/api/sales", { limit: 10 }],
+  });
+
+  const { data: dailySummary = { total: "0", count: 0 } } = useQuery<{ total: string; count: number }>({
+    queryKey: ["/api/sales/summary/daily"],
+  });
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header onLogout={onLogout} />
+      
+      <main className="p-4 pb-20">
+        {/* Quick Sale Button */}
+        <Card className="mb-6 bg-gradient-to-r from-company-primary to-blue-600 text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold mb-2">Venda Rápida</h2>
+                <p className="text-blue-100">Clique para registrar uma nova venda</p>
+              </div>
+              <Button 
+                onClick={() => setShowSaleModal(true)}
+                variant="secondary"
+                size="lg"
+                className="bg-white text-company-primary hover:bg-gray-100"
+              >
+                <ShoppingCart className="mr-2 h-5 w-5" />
+                Nova Venda
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Daily Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Vendas Hoje</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold company-primary">
+                {formatCurrency(dailySummary.total)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {dailySummary.count} vendas realizadas
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Próximos Agendamentos</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">3</div>
+              <p className="text-xs text-muted-foreground">
+                Para hoje e amanhã
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Entregas Pendentes</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">5</div>
+              <p className="text-xs text-muted-foreground">
+                Para entrega hoje
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Sales */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Vendas Recentes</CardTitle>
+            <CardDescription>Últimas vendas realizadas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {salesLoading ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-16 bg-gray-200 rounded-md animate-pulse" />
+                ))}
+              </div>
+            ) : sales.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">
+                Nenhuma venda encontrada
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {sales.map((sale) => (
+                  <div key={sale.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">{sale.customerName}</p>
+                      <p className="text-sm text-gray-600">
+                        {formatDate(new Date(sale.createdAt))} às {formatTime(new Date(sale.createdAt))}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold company-primary">{formatCurrency(sale.total)}</p>
+                      <Badge variant="outline" className="text-xs">
+                        {sale.paymentMethod}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+
+      <BottomNav activeTab="home" onTabChange={() => {}} />
+      
+      <SaleModal 
+        open={showSaleModal} 
+        onClose={() => setShowS

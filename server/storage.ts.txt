@@ -1,0 +1,318 @@
+import { 
+  customers, 
+  products, 
+  sales, 
+  saleItems,
+  appointments,
+  deliveries,
+  suppliers,
+  milkDeliveries,
+  type Customer, 
+  type InsertCustomer,
+  type Product,
+  type InsertProduct,
+  type Sale,
+  type InsertSale,
+  type SaleItem,
+  type InsertSaleItem,
+  type SaleWithItems,
+  type Appointment,
+  type InsertAppointment,
+  type Delivery,
+  type InsertDelivery,
+  type Supplier,
+  type InsertSupplier,
+  type MilkDelivery,
+  type InsertMilkDelivery,
+  type SupplierWithDeliveries
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, gte, lte, and, sql } from "drizzle-orm";
+
+export interface IStorage {
+  // Customers
+  getCustomer(id: number): Promise<Customer | undefined>;
+  getCustomerByPhone(phone: string): Promise<Customer | undefined>;
+  createCustomer(customer: InsertCustomer): Promise<Customer>;
+  
+  // Products
+  getAllProducts(): Promise<Product[]>;
+  getProduct(id: number): Promise<Product | undefined>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined>;
+  
+  // Sales
+  createSale(sale: InsertSale, items: InsertSaleItem[]): Promise<SaleWithItems>;
+  getSale(id: number): Promise<SaleWithItems | undefined>;
+  getSales(limit?: number): Promise<SaleWithItems[]>;
+  getSalesByDateRange(startDate: Date, endDate: Date): Promise<SaleWithItems[]>;
+  getDailySummary(date: Date): Promise<{ total: string; count: number }>;
+  
+  // Appointments
+  getAllAppointments(): Promise<Appointment[]>;
+  createAppointment(appointment: InsertAppointment): Promise<Appointment>;
+  
+  // Deliveries
+  getAllDeliveries(): Promise<Delivery[]>;
+  createDelivery(delivery: InsertDelivery): Promise<Delivery>;
+  
+  // NOVO: Suppliers
+  getAllSuppliers(): Promise<Supplier[]>;
+  getSupplier(id: number): Promise<Supplier | undefined>;
+  createSupplier(supplier: InsertSupplier): Promise<Supplier>;
+  updateSupplier(id: number, supplier: Partial<InsertSupplier>): Promise<Supplier | undefined>;
+  
+  // NOVO: Milk Deliveries
+  getAllMilkDeliveries(): Promise<MilkDelivery[]>;
+  getMilkDeliveriesBySupplierId(supplierId: number): Promise<MilkDelivery[]>;
+  createMilkDelivery(milkDelivery: InsertMilkDelivery): Promise<MilkDelivery>;
+  markMilkDeliveryAsPaid(id: number): Promise<MilkDelivery | undefined>;
+  
+  // NOVO: Supplier analytics
+  getSupplierBalances(): Promise<Array<{ supplierId: number; supplierName: string; totalOwed: string; unpaidDeliveries: number }>>;
+  getTotalOwedToSuppliers(): Promise<{ totalOwed: string; suppliersCount: number }>;
+  
+  // Analytics
+  getPaymentMethodStats(startDate?: Date, endDate?: Date): Promise<Array<{ method: string; count: number; total: string }>>;
+  getTopProducts(limit?: number, startDate?: Date, endDate?: Date): Promise<Array<{ productName: string; quantity: string; total: string }>>;
+}
+
+export class DatabaseStorage implements IStorage {
+  async getCustomer(id: number): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+    return customer;
+  }
+
+  async getCustomerByPhone(phone: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.phone, phone));
+    return customer;
+  }
+
+  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    const [newCustomer] = await db.insert(customers).values(customer).returning();
+    return newCustomer;
+  }
+
+  async getAllProducts(): Promise<Product[]> {
+    return await db.select().from(products).where(eq(products.active, true)).orderBy(products.name);
+  }
+
+  async getProduct(id: number): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
+  }
+
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const [newProduct] = await db.insert(products).values(product).returning();
+    return newProduct;
+  }
+
+  async updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined> {
+    const [updatedProduct] = await db.update(products).set(product).where(eq(products.id, id)).returning();
+    return updatedProduct;
+  }
+
+  async createSale(sale: InsertSale, items: InsertSaleItem[]): Promise<SaleWithItems> {
+    const [newSale] = await db.insert(sales).values(sale).returning();
+    
+    const saleItemsWithSaleId = items.map(item => ({
+      ...item,
+      saleId: newSale.id
+    }));
+    
+    const newItems = await db.insert(saleItems).values(saleItemsWithSaleId).returning();
+    
+    return {
+      ...newSale,
+      items: newItems
+    };
+  }
+
+  async getSale(id: number): Promise<SaleWithItems | undefined> {
+    const [sale] = await db.select().from(sales).where(eq(sales.id, id));
+    if (!sale) return undefined;
+    
+    const items = await db.select().from(saleItems).where(eq(saleItems.saleId, id));
+    
+    return {
+      ...sale,
+      items
+    };
+  }
+
+  async getSales(limit = 50): Promise<SaleWithItems[]> {
+    const salesList = await db.select().from(sales).orderBy(desc(sales.createdAt)).limit(limit);
+    
+    const salesWithItems = await Promise.all(
+      salesList.map(async (sale) => {
+        const items = await db.select().from(saleItems).where(eq(saleItems.saleId, sale.id));
+        return { ...sale, items };
+      })
+    );
+    
+    return salesWithItems;
+  }
+
+  async getSalesByDateRange(startDate: Date, endDate: Date): Promise<SaleWithItems[]> {
+    const salesList = await db.select().from(sales)
+      .where(and(
+        gte(sales.createdAt, startDate),
+        lte(sales.createdAt, endDate)
+      ))
+      .orderBy(desc(sales.createdAt));
+    
+    const salesWithItems = await Promise.all(
+      salesList.map(async (sale) => {
+        const items = await db.select().from(saleItems).where(eq(saleItems.saleId, sale.id));
+        return { ...sale, items };
+      })
+    );
+    
+    return salesWithItems;
+  }
+
+  async getDailySummary(date: Date): Promise<{ total: string; count: number }> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    const result = await db.select({
+      total: sql<string>`COALESCE(SUM(${sales.total}), 0)`,
+      count: sql<number>`COUNT(*)`
+    }).from(sales)
+      .where(and(
+        gte(sales.createdAt, startOfDay),
+        lte(sales.createdAt, endOfDay)
+      ));
+    
+    return result[0] || { total: "0", count: 0 };
+  }
+
+  async getAllAppointments(): Promise<Appointment[]> {
+    return await db.select().from(appointments).orderBy(desc(appointments.date));
+  }
+
+  async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
+    const [newAppointment] = await db.insert(appointments).values(appointment).returning();
+    return newAppointment;
+  }
+
+  async getAllDeliveries(): Promise<Delivery[]> {
+    return await db.select().from(deliveries).orderBy(desc(deliveries.deliveryDate));
+  }
+
+  async createDelivery(delivery: InsertDelivery): Promise<Delivery> {
+    const [newDelivery] = await db.insert(deliveries).values(delivery).returning();
+    return newDelivery;
+  }
+
+  // NOVO: Métodos dos fornecedores
+  async getAllSuppliers(): Promise<Supplier[]> {
+    return await db.select().from(suppliers).where(eq(suppliers.active, true)).orderBy(suppliers.name);
+  }
+
+  async getSupplier(id: number): Promise<Supplier | undefined> {
+    const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, id));
+    return supplier;
+  }
+
+  async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
+    const [newSupplier] = await db.insert(suppliers).values(supplier).returning();
+    return newSupplier;
+  }
+
+  async updateSupplier(id: number, supplier: Partial<InsertSupplier>): Promise<Supplier | undefined> {
+    const [updatedSupplier] = await db.update(suppliers).set(supplier).where(eq(suppliers.id, id)).returning();
+    return updatedSupplier;
+  }
+
+  async getAllMilkDeliveries(): Promise<MilkDelivery[]> {
+    return await db.select().from(milkDeliveries).orderBy(desc(milkDeliveries.deliveryDate));
+  }
+
+  async getMilkDeliveriesBySupplierId(supplierId: number): Promise<MilkDelivery[]> {
+    return await db.select().from(milkDeliveries).where(eq(milkDeliveries.supplierId, supplierId)).orderBy(desc(milkDeliveries.deliveryDate));
+  }
+
+  async createMilkDelivery(milkDelivery: InsertMilkDelivery): Promise<MilkDelivery> {
+    const [newMilkDelivery] = await db.insert(milkDeliveries).values(milkDelivery).returning();
+    return newMilkDelivery;
+  }
+
+  async markMilkDeliveryAsPaid(id: number): Promise<MilkDelivery | undefined> {
+    const [updatedDelivery] = await db.update(milkDeliveries)
+      .set({ 
+        isPaid: true, 
+        paidAt: new Date() 
+      })
+      .where(eq(milkDeliveries.id, id))
+      .returning();
+    return updatedDelivery;
+  }
+
+  async getSupplierBalances(): Promise<Array<{ supplierId: number; supplierName: string; totalOwed: string; unpaidDeliveries: number }>> {
+    const result = await db.select({
+      supplierId: milkDeliveries.supplierId,
+      supplierName: milkDeliveries.supplierName,
+      totalOwed: sql<string>`SUM(${milkDeliveries.totalValue})`,
+      unpaidDeliveries: sql<number>`COUNT(*)`
+    }).from(milkDeliveries)
+      .where(eq(milkDeliveries.isPaid, false))
+      .groupBy(milkDeliveries.supplierId, milkDeliveries.supplierName)
+      .orderBy(milkDeliveries.supplierName);
+    
+    return result;
+  }
+
+  async getTotalOwedToSuppliers(): Promise<{ totalOwed: string; suppliersCount: number }> {
+    const result = await db.select({
+      totalOwed: sql<string>`COALESCE(SUM(${milkDeliveries.totalValue}), 0)`,
+      suppliersCount: sql<number>`COUNT(DISTINCT ${milkDeliveries.supplierId})`
+    }).from(milkDeliveries)
+      .where(eq(milkDeliveries.isPaid, false));
+    
+    return result[0] || { totalOwed: "0", suppliersCount: 0 };
+  }
+
+  async getPaymentMethodStats(startDate?: Date, endDate?: Date): Promise<Array<{ method: string; count: number; total: string }>> {
+    let query = db.select({
+      method: sales.paymentMethod,
+      count: sql<number>`COUNT(*)`,
+      total: sql<string>`SUM(${sales.total})`
+    }).from(sales);
+    
+    if (startDate && endDate) {
+      query = query.where(and(
+        gte(sales.createdAt, startDate),
+        lte(sales.createdAt, endDate)
+      ));
+    }
+    
+    return await query.groupBy(sales.paymentMethod);
+  }
+
+  async getTopProducts(limit = 10, startDate?: Date, endDate?: Date): Promise<Array<{ productName: string; quantity: string; total: string }>> {
+    let query = db.select({
+      productName: saleItems.productName,
+      quantity: sql<string>`SUM(${saleItems.quantity})`,
+      total: sql<string>`SUM(${saleItems.subtotal})`
+    }).from(saleItems)
+      .innerJoin(sales, eq(saleItems.saleId, sales.id));
+    
+    if (startDate && endDate) {
+      query = query.where(and(
+        gte(sales.createdAt, startDate),
+        lte(sales.createdAt, endDate)
+      ));
+    }
+    
+    return await query
+      .groupBy(saleItems.productName)
+      .orderBy(sql`SUM(${saleItems.quantity}) DESC`)
+      .limit(limit);
+  }
+}
+
+export const storage = new DatabaseStorage();

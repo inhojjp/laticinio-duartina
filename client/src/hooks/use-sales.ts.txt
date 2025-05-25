@@ -1,0 +1,58 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import type { SaleWithItems, InsertSale, InsertSaleItem } from "@shared/schema";
+
+export function useSales(limit?: number) {
+  return useQuery<SaleWithItems[]>({
+    queryKey: ["/api/sales", { limit }],
+  });
+}
+
+export function useSale(id: number) {
+  return useQuery<SaleWithItems>({
+    queryKey: ["/api/sales", id],
+  });
+}
+
+export function useDailySummary(date?: Date) {
+  return useQuery<{ total: string; count: number }>({
+    queryKey: ["/api/sales/summary/daily", { date: date?.toISOString() }],
+  });
+}
+
+export function useSalesByDateRange(startDate: Date, endDate: Date, enabled: boolean = true) {
+  return useQuery<SaleWithItems[]>({
+    queryKey: ["/api/sales/range", { startDate: startDate.toISOString(), endDate: endDate.toISOString() }],
+    enabled,
+  });
+}
+
+export function useCreateSale() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (data: { sale: InsertSale; items: InsertSaleItem[] }) => {
+      const response = await apiRequest("/api/sales", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sales/summary/daily"] });
+    },
+  });
+}
+
+export function usePaymentMethodStats(startDate?: Date, endDate?: Date) {
+  return useQuery({
+    queryKey: ["/api/sales/stats/payment-methods", { startDate: startDate?.toISOString(), endDate: endDate?.toISOString() }],
+  });
+}
+
+export function useTopProducts(limit?: number, startDate?: Date, endDate?: Date) {
+  return useQuery({
+    queryKey: ["/api/sales/stats/top-products", { limit, startDate: startDate?.toISOString(), endDate: endDate?.toISOString() }],
+  });
+}

@@ -1,0 +1,35 @@
+import { Express } from "express";
+import { createServer as createViteServer, type ViteDevServer } from "vite";
+import { Server } from "http";
+import express from "express";
+import path from "path";
+
+export function log(message: string, source = "express") {
+  const time = new Date().toLocaleTimeString("en-US", {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+  console.log(`${time} [${source}] ${message}`);
+}
+
+export async function setupVite(app: Express, server: Server) {
+  const vite = await createViteServer({
+    server: {
+      middlewareMode: true,
+      hmr: { server },
+    },
+  });
+
+  app.use(vite.ssrFixStacktrace);
+  app.use(vite.middlewares);
+}
+
+export function serveStatic(app: Express) {
+  app.use(express.static("dist"));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.resolve("dist", "index.html"));
+  });
+}

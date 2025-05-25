@@ -1,0 +1,5 @@
+// Este arquivo é gerado pelo Capacitor
+// Se você modificar este arquivo manualmente, suas alterações podem ser sobrescritas
+ext {
+    // Configurações adicionais do Capacitor se necessário
+}

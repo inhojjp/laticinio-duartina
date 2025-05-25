@@ -1,0 +1,411 @@
+import { Express } from "express";
+import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
+import { storage } from "./storage";
+import { insertProductSchema, insertSaleSchema, insertSaleItemSchema, insertAppointmentSchema, insertDeliverySchema, insertSupplierSchema, insertMilkDeliverySchema } from "@shared/schema";
+import { z } from "zod";
+
+interface ConnectedUser {
+  id: string;
+  username: string;
+  connectedAt: Date;
+  lastActivity: Date;
+  ws: WebSocket;
+}
+
+const connectedUsers = new Map<string, ConnectedUser>();
+const MAX_CONCURRENT_USERS = 5;
+
+function broadcastToAllUsers(message: any) {
+  const messageString = JSON.stringify(message);
+  connectedUsers.forEach((user) => {
+    if (user.ws.readyState === WebSocket.OPEN) {
+      user.ws.send(messageString);
+    }
+  });
+}
+
+function broadcastUsersList() {
+  const usersList = Array.from(connectedUsers.values()).map(user => ({
+    id: user.id,
+    username: user.username,
+    connectedAt: user.connectedAt,
+    lastActivity: user.lastActivity
+  }));
+  
+  broadcastToAllUsers({
+    type: 'users_update',
+    data: usersList
+  });
+}
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth routes
+  app.post("/api/auth/login", async (req, res) => {
+    const { username, password } = req.body;
+    
+    if (username === "admin" && password === "favarini123") {
+      const userId = `admin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      res.json({
+        success: true,
+        user: {
+          id: userId,
+          username: "admin"
+        }
+      });
+    } else {
+      res.status(401).json({ success: false, message: "Credenciais inválidas" });
+    }
+  });
+
+  // Products routes
+  app.get("/api/products", async (_req, res) => {
+    try {
+      const products = await storage.getAllProducts();
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  app.post("/api/products", async (req, res) => {
+    try {
+      const product = insertProductSchema.parse(req.body);
+      const newProduct = await storage.createProduct(product);
+      
+      broadcastToAllUsers({
+        type: 'product_created',
+        data: newProduct
+      });
+      
+      res.json(newProduct);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid product data" });
+    }
+  });
+
+  // Sales routes
+  app.get("/api/sales", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const sales = await storage.getSales(limit);
+      res.json(sales);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sales" });
+    }
+  });
+
+  app.post("/api/sales", async (req, res) => {
+    try {
+      const { sale, items } = req.body;
+      const validatedSale = insertSaleSchema.parse(sale);
+      const validatedItems = z.array(insertSaleItemSchema).parse(items);
+      
+      const newSale = await storage.createSale(validatedSale, validatedItems);
+      
+      broadcastToAllUsers({
+        type: 'sale_created',
+        data: newSale
+      });
+      
+      res.json(newSale);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid sale data" });
+    }
+  });
+
+  app.get("/api/sales/summary/daily", async (req, res) => {
+    try {
+      const date = req.query.date ? new Date(req.query.date as string) : new Date();
+      const summary = await storage.getDailySummary(date);
+      res.json(summary);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch daily summary" });
+    }
+  });
+
+  // Appointments routes
+  app.get("/api/appointments", async (_req, res) => {
+    try {
+      const appointments = await storage.getAllAppointments();
+      res.json(appointments);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch appointments" });
+    }
+  });
+
+  app.post("/api/appointments", async (req, res) => {
+    try {
+      const appointment = insertAppointmentSchema.parse(req.body);
+      const newAppointment = await storage.createAppointment(appointment);
+      
+      broadcastToAllUsers({
+        type: 'appointment_created',
+        data: newAppointment
+      });
+      
+      res.json(newAppointment);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid appointment data" });
+    }
+  });
+
+  // Deliveries routes
+  app.get("/api/deliveries", async (_req, res) => {
+    try {
+      const deliveries = await storage.getAllDeliveries();
+      res.json(deliveries);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch deliveries" });
+    }
+  });
+
+  app.post("/api/deliveries", async (req, res) => {
+    try {
+      const delivery = insertDeliverySchema.parse(req.body);
+      const newDelivery = await storage.createDelivery(delivery);
+      
+      broadcastToAllUsers({
+        type: 'delivery_created',
+        data: newDelivery
+      });
+      
+      res.json(newDelivery);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid delivery data" });
+    }
+  });
+
+  // NOVO: Suppliers routes
+  app.get("/api/suppliers", async (_req, res) => {
+    try {
+      const suppliers = await storage.getAllSuppliers();
+      res.json(suppliers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch suppliers" });
+    }
+  });
+
+  app.post("/api/suppliers", async (req, res) => {
+    try {
+      const supplier = insertSupplierSchema.parse(req.body);
+      const newSupplier = await storage.createSupplier(supplier);
+      
+      broadcastToAllUsers({
+        type: 'supplier_created',
+        data: newSupplier
+      });
+      
+      res.json(newSupplier);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid supplier data" });
+    }
+  });
+
+  // NOVO: Milk deliveries routes
+  app.get("/api/milk-deliveries", async (_req, res) => {
+    try {
+      const milkDeliveries = await storage.getAllMilkDeliveries();
+      res.json(milkDeliveries);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch milk deliveries" });
+    }
+  });
+
+  app.post("/api/milk-deliveries", async (req, res) => {
+    try {
+      const milkDelivery = insertMilkDeliverySchema.parse(req.body);
+      const newMilkDelivery = await storage.createMilkDelivery(milkDelivery);
+      
+      broadcastToAllUsers({
+        type: 'milk_delivery_created',
+        data: newMilkDelivery
+      });
+      
+      res.json(newMilkDelivery);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid milk delivery data" });
+    }
+  });
+
+  app.patch("/api/milk-deliveries/:id/pay", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedDelivery = await storage.markMilkDeliveryAsPaid(id);
+      
+      if (updatedDelivery) {
+        broadcastToAllUsers({
+          type: 'milk_delivery_paid',
+          data: updatedDelivery
+        });
+        res.json(updatedDelivery);
+      } else {
+        res.status(404).json({ message: "Milk delivery not found" });
+      }
+    } catch (error) {
+      res.status(400).json({ message: "Failed to mark as paid" });
+    }
+  });
+
+  // NOVO: Supplier analytics routes
+  app.get("/api/suppliers/balances", async (_req, res) => {
+    try {
+      const balances = await storage.getSupplierBalances();
+      res.json(balances);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch supplier balances" });
+    }
+  });
+
+  app.get("/api/suppliers/total-owed", async (_req, res) => {
+    try {
+      const totalOwed = await storage.getTotalOwedToSuppliers();
+      res.json(totalOwed);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch total owed" });
+    }
+  });
+
+  // Analytics routes
+  app.get("/api/sales/stats/payment-methods", async (req, res) => {
+    try {
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      const stats = await storage.getPaymentMethodStats(startDate, endDate);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch payment method stats" });
+    }
+  });
+
+  app.get("/api/sales/stats/top-products", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      const stats = await storage.getTopProducts(limit, startDate, endDate);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch top products stats" });
+    }
+  });
+
+  const httpServer = createServer(app);
+
+  // WebSocket Server
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+
+  wss.on('connection', (ws, req) => {
+    let currentUser: ConnectedUser | null = null;
+
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+
+        if (data.type === 'auth') {
+          const { userId, username } = data;
+          
+          if (connectedUsers.size >= MAX_CONCURRENT_USERS && !connectedUsers.has(userId)) {
+            ws.send(JSON.stringify({
+              type: 'auth_error',
+              message: 'Máximo de usuários conectados atingido (5 usuários)'
+            }));
+            ws.close();
+            return;
+          }
+
+          if (connectedUsers.has(userId)) {
+            const existingUser = connectedUsers.get(userId);
+            if (existingUser && existingUser.ws.readyState === WebSocket.OPEN) {
+              existingUser.ws.close();
+            }
+          }
+
+          currentUser = {
+            id: userId,
+            username,
+            connectedAt: new Date(),
+            lastActivity: new Date(),
+            ws
+          };
+
+          connectedUsers.set(userId, currentUser);
+          
+          ws.send(JSON.stringify({
+            type: 'auth_success',
+            message: 'Conectado com sucesso'
+          }));
+
+          broadcastUsersList();
+        }
+
+        if (data.type === 'heartbeat' && currentUser) {
+          currentUser.lastActivity = new Date();
+          ws.send(JSON.stringify({ type: 'heartbeat_ack' }));
+        }
+
+        if (data.type === 'sync_request') {
+          Promise.all([
+            storage.getSales(10),
+            storage.getAllProducts(),
+            storage.getAllAppointments(),
+            storage.getAllDeliveries(),
+            storage.getAllSuppliers(),
+            storage.getAllMilkDeliveries(),
+            storage.getDailySummary(new Date()),
+            storage.getTotalOwedToSuppliers()
+          ]).then(([sales, products, appointments, deliveries, suppliers, milkDeliveries, dailySummary, totalOwed]) => {
+            ws.send(JSON.stringify({
+              type: 'sync_data',
+              data: {
+                sales,
+                products,
+                appointments,
+                deliveries,
+                suppliers,
+                milkDeliveries,
+                dailySummary,
+                totalOwed
+              }
+            }));
+          });
+        }
+
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+      }
+    });
+
+    ws.on('close', () => {
+      if (currentUser) {
+        connectedUsers.delete(currentUser.id);
+        broadcastUsersList();
+      }
+    });
+
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+      if (currentUser) {
+        connectedUsers.delete(currentUser.id);
+        broadcastUsersList();
+      }
+    });
+  });
+
+  setInterval(() => {
+    const now = new Date();
+    connectedUsers.forEach((user, userId) => {
+      const timeSinceLastActivity = now.getTime() - user.lastActivity.getTime();
+      if (timeSinceLastActivity > 60000 || user.ws.readyState !== WebSocket.OPEN) {
+        connectedUsers.delete(userId);
+        if (user.ws.readyState === WebSocket.OPEN) {
+          user.ws.close();
+        }
+      }
+    });
+    broadcastUsersList();
+  }, 30000);
+
+  return httpServer;
+}

@@ -1,0 +1,55 @@
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { pgTable, serial, varchar, text, decimal, timestamp, integer } from 'drizzle-orm/pg-core';
+
+// Configurar conexão com Neon
+const sql = neon(process.env.DATABASE_URL);
+export const db = drizzle(sql);
+
+// Tabelas do banco
+export const fornecedores = pgTable('fornecedores', {
+  id: serial('id').primaryKey(),
+  nome: varchar('nome', { length: 100 }).notNull(),
+  telefone: varchar('telefone', { length: 20 }),
+  endereco: text('endereco'),
+  preco_litro: decimal('preco_litro', { precision: 8, scale: 2 }).default('0.00'),
+  saldo_devedor: decimal('saldo_devedor', { precision: 10, scale: 2 }).default('0.00'),
+  created_at: timestamp('created_at').defaultNow()
+});
+
+export const entregas_leite = pgTable('entregas_leite', {
+  id: serial('id').primaryKey(),
+  fornecedor_id: integer('fornecedor_id').references(() => fornecedores.id),
+  quantidade_litros: decimal('quantidade_litros', { precision: 8, scale: 2 }).notNull(),
+  preco_total: decimal('preco_total', { precision: 10, scale: 2 }).notNull(),
+  data_entrega: timestamp('data_entrega').defaultNow(),
+  observacoes: text('observacoes')
+});
+
+export const produtos = pgTable('produtos', {
+  id: serial('id').primaryKey(),
+  nome: varchar('nome', { length: 100 }).notNull(),
+  categoria: varchar('categoria', { length: 50 }).notNull(),
+  preco: decimal('preco', { precision: 8, scale: 2 }).notNull(),
+  estoque: integer('estoque').default(0),
+  created_at: timestamp('created_at').defaultNow()
+});
+
+export const vendas = pgTable('vendas', {
+  id: serial('id').primaryKey(),
+  cliente_nome: varchar('cliente_nome', { length: 100 }),
+  cliente_telefone: varchar('cliente_telefone', { length: 20 }),
+  total: decimal('total', { precision: 10, scale: 2 }).notNull(),
+  forma_pagamento: varchar('forma_pagamento', { length: 30 }).notNull(),
+  data_venda: timestamp('data_venda').defaultNow(),
+  observacoes: text('observacoes')
+});
+
+export const itens_venda = pgTable('itens_venda', {
+  id: serial('id').primaryKey(),
+  venda_id: integer('venda_id').references(() => vendas.id),
+  produto_id: integer('produto_id').references(() => produtos.id),
+  quantidade: integer('quantidade').notNull(),
+  preco_unitario: decimal('preco_unitario', { precision: 8, scale: 2 }).notNull(),
+  subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull()
+});
